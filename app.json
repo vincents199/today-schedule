@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "今天谁干啥",
+    "navigationBarBackgroundColor": "#FFF5E6",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FFF9F0"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
