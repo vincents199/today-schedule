@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>今天谁干啥 - 图标生成</title></head>
+<body style="display:flex;flex-direction:column;align-items:center;padding:40px;gap:20px;background:#f5f5f5;font-family:sans-serif">
+  <p style="font:20px sans-serif">点击下方按钮下载 144×144 PNG 图标</p>
+  <canvas id="c" width="144" height="144" style="display:none"></canvas>
+  <canvas id="preview" width="288" height="288" style="border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1)"></canvas>
+  <button onclick="save()" style="padding:14px 40px;font:18px sans-serif;border:none;border-radius:10px;background:#FF8C42;color:#fff;cursor:pointer">下载 144×144 PNG</button>
+  <p style="font:14px #999">图标会自动下载为 app_icon_144.png</p>
+  <script>
+    function rr(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function drawIcon(ctx, w) {
+      var s = w / 144;
+      var g = ctx.createLinearGradient(0, 0, w, w);
+      g.addColorStop(0, '#FF8C42'); g.addColorStop(1, '#FF6B35');
+      rr(ctx, 0, 0, w, w, 28 * s);
+      ctx.fillStyle = g; ctx.fill();
+
+      rr(ctx, 27 * s, 28 * s, 90 * s, 17 * s, 5 * s);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fill();
+
+      rr(ctx, 27 * s, 50 * s, 90 * s, 62 * s, 5 * s);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = s;
+      for (var x = 45 * s; x <= 99 * s; x += 18 * s) {
+        ctx.beginPath(); ctx.moveTo(x, 50 * s); ctx.lineTo(x, 112 * s); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(27 * s, 70 * s); ctx.lineTo(117 * s, 70 * s); ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      for (var x = 36 * s; x <= 72 * s; x += 18 * s) {
+        ctx.beginPath(); ctx.arc(x, 36 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+      }
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.08)';
+      ctx.shadowBlur = 3 * s;
+      ctx.shadowOffsetY = s;
+
+      ctx.font = 'bold ' + (32 * s) + 'px serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#5B8DEF'; ctx.fillText('♊', 52 * s, 78 * s);
+      ctx.fillStyle = '#FF8C94'; ctx.fillText('♏', 90 * s, 78 * s);
+      ctx.restore();
+
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold ' + (14 * s) + 'px "PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('今天谁干啥', 72 * s, 124 * s);
+    }
+
+    var c = document.getElementById('c'), p = document.getElementById('preview');
+    var cp = c.getContext('2d'), pp = p.getContext('2d');
+    drawIcon(cp, 144);
+    pp.scale(2, 2);
+    drawIcon(pp, 288);
+
+    function save() {
+      var link = document.createElement('a');
+      link.download = 'app_icon_144.png';
+      link.href = c.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>
