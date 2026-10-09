@@ -1,0 +1,7 @@
+/* 全局基础样式 - 温暖柔和的主题 */
+page {
+  background-color: #FFF9F0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  color: #333;
+  box-sizing: border-box;
+}
