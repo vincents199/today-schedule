@@ -1,0 +1,508 @@
+<!-- 首页 - 双娃日程看板 + 家庭同步 -->
+<view class="container">
+
+  <!-- ======================== -->
+  <!-- 场景1: 家庭未配置 → 设置页 -->
+  <!-- ======================== -->
+  <view wx:if="{{familyState === 'setup'}}" class="setup-container">
+
+    <!-- 主界面 -->
+    <view wx:if="{{!setupMode}}" class="setup-main">
+      <view class="setup-logo">👨‍👩‍👧‍👦</view>
+      <text class="setup-title">家庭日程管家</text>
+      <text class="setup-desc">创建或加入家庭，与家人同步日程</text>
+
+      <view class="setup-btn primary-btn" bindtap="showSetup" data-mode="create">
+        <text>✨ 创建新家庭</text>
+      </view>
+      <view class="setup-btn secondary-btn" bindtap="showSetup" data-mode="join">
+        <text>🔗 加入已有家庭</text>
+      </view>
+    </view>
+
+    <!-- 创建家庭 -->
+    <view wx:elif="{{setupMode === 'create'}}" class="setup-main">
+      <view class="setup-back" bindtap="backSetup">← 返回</view>
+      <text class="setup-title">✨ 创建新家庭</text>
+      <text class="setup-desc">创建一个家庭组，生成邀请码分享给家人</text>
+      <view class="setup-btn primary-btn" bindtap="createFamily">
+        <text>立即创建</text>
+      </view>
+    </view>
+
+    <!-- 加入家庭 -->
+    <view wx:elif="{{setupMode === 'join'}}" class="setup-main">
+      <view class="setup-back" bindtap="backSetup">← 返回</view>
+      <text class="setup-title">🔗 加入家庭</text>
+      <text class="setup-desc">输入家人给你的 4 位邀请码</text>
+
+      <view class="join-input-wrap">
+        <input class="join-input" placeholder="输入邀请码" maxlength="4"
+               value="{{joinCode}}" bindinput="onJoinCodeInput"
+               focus="{{setupMode === 'join'}}" />
+      </view>
+
+      <view class="join-input-wrap">
+        <input class="join-name-input" placeholder="输入你的昵称（如：爸爸/妈妈）" maxlength="10"
+               value="{{memberNameInput}}" bindinput="onMemberNameInput" />
+      </view>
+
+      <view class="setup-btn primary-btn" bindtap="joinFamily">
+        <text>加入</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ======================== -->
+  <!-- 场景2: 家庭已就绪 → 主看板 -->
+  <!-- ======================== -->
+  <view wx:elif="{{familyState === 'ready'}}">
+
+    <!-- 顶部：日期导航 + 进度 -->
+    <view class="header">
+      <!-- 日期切换栏 -->
+      <view class="date-nav">
+        <view class="date-nav-btn" bindtap="goPrevDay">◀</view>
+        <view class="date-nav-center">
+          <picker mode="date" value="{{currentViewDate}}" bindchange="onDatePickerChange">
+            <view class="date-nav-title">
+              <text class="date-nav-text">{{viewDateDisplay}}</text>
+              <text wx:if="{{!isViewToday}}" class="date-nav-badge">● 查看历史</text>
+            </view>
+          </picker>
+        </view>
+        <view class="date-nav-btn" bindtap="goNextDay">▶</view>
+      </view>
+
+      <!-- 进度条 -->
+      <view class="progress-section">
+        <view class="progress-bar-bg">
+          <view class="progress-bar-fill" style="width: {{progressPercent}}%;"></view>
+        </view>
+        <text class="progress-label">{{completedCount}}/{{totalCount}} 已完成</text>
+      </view>
+
+      <!-- 操作栏 -->
+      <view class="action-bar">
+        <view class="icon-btn" bindtap="showSearchModal">🔍 搜索</view>
+        <view wx:if="{{canEditTasks}}" class="icon-btn" bindtap="showBatchInput">📋 批量</view>
+        <view wx:if="{{canEditTasks}}" class="icon-btn {{hasAutoReminder ? 'reminder-on' : ''}}" bindtap="toggleAutoReminder">{{hasAutoReminder ? '🔔 提醒' : '🔕 提醒'}}</view>
+        <view wx:if="{{hasAutoReminder}}" class="icon-btn reminder-on" bindtap="supplementSubscriptions">
+          ⚡ 补充订阅
+          <text wx:if="{{!reminderQuotaExpired}}" class="quota-badge">{{reminderQuotaLeft}}</text>
+        </view>
+        <view class="icon-btn" bindtap="showFamilySettings">👤 家庭</view>
+        <view class="icon-btn" bindtap="toggleCalendar">{{showCalendar ? '📅 日' : '📅 月'}}</view>
+        <view wx:if="{{!isViewToday && !showCalendar}}" class="today-btn" bindtap="goToday">返回今天</view>
+        <view wx:if="{{canEditTasks && !showCalendar}}" class="reset-btn" bindtap="resetToday">↻ 重置</view>
+      </view>
+    </view>
+
+    <!-- 双栏日程 / 月历 -->
+    <scroll-view class="body" scroll-y enhanced show-scrollbar="{{false}}">
+      <view wx:if="{{showCalendar}}" class="calendar-wrap">
+
+        <!-- 月历导航 -->
+        <view class="calendar-nav">
+          <view class="calendar-nav-btn" bindtap="goPrevMonth">◀</view>
+          <text class="calendar-nav-title">{{calendarYear}}年{{calendarMonth}}月</text>
+          <view class="calendar-nav-btn" bindtap="goNextMonth">▶</view>
+        </view>
+        <view class="calendar-holiday-bar">
+          <text class="calendar-holiday-btn" bindtap="syncHolidays">📅 更新节假日</text>
+        </view>
+
+        <!-- 星期头 -->
+        <view class="calendar-weekdays">
+          <view wx:for="{{weekDayLabels}}" wx:key="*this" class="calendar-weekday">{{item}}</view>
+        </view>
+
+        <!-- 日期网格 -->
+        <view class="calendar-grid">
+          <view wx:for="{{calendarDays}}" wx:key="dateStr"
+                class="calendar-day {{item.isCurrentMonth ? '' : 'calendar-day-other'}} {{item.isToday ? 'calendar-day-today' : ''}}"
+                data-date="{{item.dateStr}}" bindtap="onCalendarDayTap">
+            <text class="calendar-day-num {{item.holiday && item.isCurrentMonth ? 'calendar-day-holiday-num' : ''}}">{{item.dayNum}}</text>
+            <text wx:if="{{item.holiday && item.isCurrentMonth}}" class="calendar-day-holiday">{{item.holiday.name}}</text>
+            <text wx:if="{{item.hasConflict}}" class="calendar-day-conflict">⚠️</text>
+            <text wx:if="{{item.count > 0}}" class="calendar-day-badge">{{item.count}}</text>
+          </view>
+        </view>
+
+      </view>
+      <view wx:elif="{{!showCalendar}}">
+
+      <!-- Angel -->
+      <view class="child-column">
+        <view class="column-header" style="border-left-color: #5B8DEF; background: #F0F6FF;">
+          <text class="column-emoji">♊</text>
+          <text class="column-name">Angel</text>
+          <text class="column-count" style="color: #5B8DEF;">{{elderCompletedCount}}/{{elderTasks.length}}</text>
+        </view>
+
+        <view class="task-list">
+          <view wx:for="{{elderTasks}}" wx:key="id"
+                class="task-card {{item.completed ? 'completed' : ''}}"
+                bindtap="showTaskDetail"
+                data-id="{{item.id}}" data-date="{{item.date}}">
+            <view class="task-time-block {{item.isAllDay ? 'task-time-all-day-block' : ''}}">
+              <text class="task-time-start">{{item.timeDisplay}}</text>
+            </view>
+            <view class="task-body">
+              <text class="task-name {{item.completed ? 'task-done' : ''}}">{{item.name}}</text>
+              <view class="task-meta">
+                <text wx:if="{{item.location}}" class="task-location">📍 {{item.location}}</text>
+                <text wx:if="{{item.conflictNames.length > 0}}" class="task-conflict">⚠️ 时间冲突</text>
+              </view>
+            </view>
+            <view class="task-check-wrap" catchtap="toggleQuickComplete"
+                  data-id="{{item.id}}" data-date="{{item.date}}">
+              <view class="task-check {{item.completed ? 'check-on' : 'check-off'}}">
+                <text wx:if="{{item.completed}}" class="check-icon">✓</text>
+              </view>
+            </view>
+          </view>
+          <view wx:if="{{elderTasks.length === 0}}" class="empty-state">
+            <text class="empty-icon">📋</text>
+            <text class="empty-text">暂无日程</text>
+            <text class="empty-hint">点击下方 + 号添加</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="divider"></view>
+
+      <!-- Max -->
+      <view class="child-column">
+        <view class="column-header" style="border-left-color: #FF8C94; background: #FFF0F3;">
+          <text class="column-emoji">♏</text>
+          <text class="column-name">Max</text>
+          <text class="column-count" style="color: #FF8C94;">{{youngerCompletedCount}}/{{youngerTasks.length}}</text>
+        </view>
+        <view class="task-list">
+          <view wx:for="{{youngerTasks}}" wx:key="id"
+                class="task-card {{item.completed ? 'completed' : ''}}"
+                bindtap="showTaskDetail"
+                data-id="{{item.id}}" data-date="{{item.date}}">
+            <view class="task-time-block {{item.isAllDay ? 'task-time-all-day-block' : ''}}">
+              <text class="task-time-start">{{item.timeDisplay}}</text>
+            </view>
+            <view class="task-body">
+              <text class="task-name {{item.completed ? 'task-done' : ''}}">{{item.name}}</text>
+              <view class="task-meta">
+                <text wx:if="{{item.location}}" class="task-location">📍 {{item.location}}</text>
+                <text wx:if="{{item.conflictNames.length > 0}}" class="task-conflict">⚠️ 时间冲突</text>
+              </view>
+            </view>
+            <view class="task-check-wrap" catchtap="toggleQuickComplete"
+                  data-id="{{item.id}}" data-date="{{item.date}}">
+              <view class="task-check {{item.completed ? 'check-on' : 'check-off'}}">
+                <text wx:if="{{item.completed}}" class="check-icon">✓</text>
+              </view>
+            </view>
+          </view>
+          <view wx:if="{{youngerTasks.length === 0}}" class="empty-state">
+            <text class="empty-icon">📋</text>
+            <text class="empty-text">暂无日程</text>
+            <text class="empty-hint">点击下方 + 号添加</text>
+          </view>
+        </view>
+      </view>
+      </view>
+
+    </scroll-view>
+
+    <!-- FAB -->
+    <view wx:if="{{canEditTasks}}" class="fab" bindtap="showAddModal">
+      <text class="fab-icon">+</text>
+    </view>
+
+    <!-- 搜索弹窗 -->
+    <view wx:if="{{showSearch}}" class="modal-overlay" bindtap="hideSearchModal">
+      <view class="modal-content search-content" catchtap="noop">
+        <view class="search-header">
+          <text class="search-header-title">🔍 搜索日程</text>
+          <text class="search-header-close" bindtap="hideSearchModal">✕</text>
+        </view>
+        <view class="search-input-wrap">
+          <text class="search-input-icon">🔍</text>
+          <input class="search-input" placeholder="输入日程名称搜索..." value="{{searchQuery}}"
+                 bindinput="onSearchInput" focus="{{showSearch}}" confirm-type="search" />
+          <text wx:if="{{searchQuery}}" class="search-input-clear" bindtap="clearSearch">✕</text>
+        </view>
+        <view wx:if="!searchQuery" class="search-hint">
+          <text>输入日程名称，快速查找哪天有安排</text>
+        </view>
+        <scroll-view scroll-y class="search-results-scroll" wx:if="{{searchQuery}}">
+          <view wx:for="{{searchResults}}" wx:key="id" class="search-result-item"
+                bindtap="goToSearchResult" data-date="{{item.date}}" hover-class="search-result-hover">
+            <view class="search-result-badge {{item.child === 'elder' ? 'badge-elder' : 'badge-younger'}}">{{item.child === 'elder' ? '♊' : '♏'}}</view>
+            <view class="search-result-body">
+              <text class="search-result-name">{{item.name}}</text>
+              <view class="search-result-meta-row">
+                <text wx:if="{{item.dateText !== '（重复日程）'}}" class="search-result-date">📅 {{item.dateText}}</text>
+                <text wx:if="{{item.isRecurring}}" class="search-result-repeat">↻ 每周{{item.repeatDesc}}</text>
+                <text wx:else class="search-result-time">🕐 {{item.timeDisplay}}</text>
+              </view>
+            </view>
+            <text class="search-result-arrow">›</text>
+          </view>
+          <view wx:if="{{searchResults.length === 0}}" class="search-empty">
+            <text class="search-empty-icon">🔍</text>
+            <text class="search-empty-text">未找到匹配「{{searchQuery}}」的日程</text>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+
+    <!-- 详情弹窗 -->
+    <view wx:if="{{showDetail && detailTask}}" class="modal-overlay" bindtap="hideDetail">
+      <view class="modal-content detail-content" catchtap="noop">
+        <text class="modal-title">📋 日程详情</text>
+        <view class="detail-field detail-name">
+          <text class="detail-label">日程</text>
+          <text class="detail-value detail-value-lg">{{detailTask.name}}</text>
+        </view>
+        <view class="detail-field">
+          <text class="detail-label">👤 孩子</text>
+          <text class="detail-value">{{detailTask.child === 'elder' ? '♊ Angel' : '♏ Max'}}</text>
+        </view>
+        <view class="detail-field">
+          <text class="detail-label">📅 日期</text>
+          <text class="detail-value">{{detailTask._formattedDate}}</text>
+        </view>
+        <view class="detail-field">
+          <text class="detail-label">🕐 时间</text>
+          <text class="detail-value">{{detailTask.timeDisplay}}</text>
+        </view>
+        <view wx:if="{{detailTask.location}}" class="detail-field detail-location" bindtap="openLocation">
+          <text class="detail-label">📍 地点</text>
+          <text class="detail-value detail-link">{{detailTask.location}} →</text>
+        </view>
+        <view wx:if="{{detailTask.isRecurring}}" class="detail-field">
+          <text class="detail-label">🔄 重复</text>
+          <text class="detail-value">{{detailTask.repeatDesc}}</text>
+        </view>
+        <view class="detail-complete-section">
+          <view class="detail-complete-btn {{detailTask.completed ? 'btn-undo' : 'btn-done'}}"
+                bindtap="toggleCompleteInDetail">
+            <text>{{detailTask.completed ? '↩ 取消完成' : '✓ 标记完成'}}</text>
+          </view>
+        </view>
+        <view wx:if="{{canEditTasks}}" class="detail-edit-section" bindtap="editTask">
+          <view class="detail-edit-btn"><text>✏️ 编辑此日程</text></view>
+        </view>
+        <view wx:if="{{canEditTasks}}" class="detail-delete-section" bindtap="deleteTask">
+          <view class="detail-delete-btn"><text>🗑 删除此日程</text></view>
+        </view>
+        <view class="modal-btns single-btn">
+          <view class="btn btn-cancel" bindtap="hideDetail">关闭</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 添加弹窗 -->
+    <view wx:if="{{showAddModal}}" class="modal-overlay" bindtap="hideAddModal">
+      <view class="modal-content add-content" catchtap="noop">
+        <text class="modal-title">✏️ 添加新日程</text>
+        <scroll-view scroll-y class="add-form-scroll">
+          <view class="form-group">
+            <text class="form-label">👤 选择孩子</text>
+            <picker bindchange="onChildChange" value="{{formChildIndex}}" range="{{childPickerNames}}">
+              <view class="form-picker"><text>{{childPickerNames[formChildIndex]}}</text><text class="picker-arrow">▼</text></view>
+            </picker>
+          </view>
+          <view class="form-group">
+            <text class="form-label">📅 日期</text>
+            <picker mode="date" bindchange="onDateChange" value="{{formDate}}">
+              <view class="form-picker"><text>{{formDate}}</text><text class="picker-arrow">▼</text></view>
+            </picker>
+          </view>
+          <view class="form-group">
+            <view class="form-label-row">
+              <text class="form-label">🕐 时间</text>
+              <view class="form-toggle-wrap" bindtap="toggleFormAllDay">
+                <text class="form-toggle {{formAllDay ? 'form-toggle-on' : ''}}">全天</text>
+              </view>
+            </view>
+            <view wx:if="{{!formAllDay}}" class="form-row">
+              <view class="form-half">
+                <text class="form-label">开始</text>
+                <picker mode="time" bindchange="onStartTimeChange" value="{{formStartTime}}">
+                  <view class="form-picker"><text>{{formStartTime}}</text><text class="picker-arrow">▼</text></view>
+                </picker>
+              </view>
+              <view class="form-half">
+                <text class="form-label">结束</text>
+                <picker mode="time" bindchange="onEndTimeChange" value="{{formEndTime}}">
+                  <view class="form-picker"><text>{{formEndTime || '--:--'}}</text><text class="picker-arrow">▼</text></view>
+                </picker>
+              </view>
+            </view>
+          </view>
+          <view class="form-group">
+            <text class="form-label">📝 日程名称</text>
+            <input class="form-input" placeholder="如：钢琴课、英语班..." value="{{formName}}" bindinput="onNameInput" maxlength="50" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">📍 上课地点</text>
+            <view class="location-row">
+              <input class="form-input loc-input" placeholder="输入地址或点击右侧按钮选择" value="{{formLocation}}" bindinput="onLocationInput" />
+              <view class="loc-btn" bindtap="chooseLocation">🗺️</view>
+              <view wx:if="{{formLocation}}" class="loc-clear" bindtap="clearLocation">✕</view>
+            </view>
+          </view>
+          <view class="form-group">
+            <text class="form-label">🔄 重复设置</text>
+            <picker bindchange="onRepeatTypeChange" value="{{formRepeatType}}" range="{{repeatPickerNames}}">
+              <view class="form-picker"><text>{{repeatPickerNames[formRepeatType]}}</text><text class="picker-arrow">▼</text></view>
+            </picker>
+          </view>
+          <view wx:if="{{formRepeatType === 1}}" class="form-group">
+            <text class="form-label">选择重复日</text>
+            <view class="day-toggles">
+              <view wx:for="{{weekDayLabels}}" wx:key="*this" class="day-tag {{formRepeatDays[index] ? 'day-active' : ''}}" data-idx="{{index}}" bindtap="toggleRepeatDay">
+                <text>周{{item}}</text>
+              </view>
+            </view>
+            <view class="form-group" style="margin-top: 16rpx;">
+              <text class="form-label">截止日期</text>
+              <picker mode="date" bindchange="onRepeatEndDateChange" value="{{formRepeatEndDate}}">
+                <view class="form-picker"><text>{{formRepeatEndDate}}</text><text class="picker-arrow">▼</text></view>
+              </picker>
+            </view>
+          </view>
+        </scroll-view>
+        <view class="modal-btns">
+          <view class="btn btn-cancel" bindtap="hideAddModal">取消</view>
+          <view class="btn btn-confirm" bindtap="addTask">✓ 添加</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 批量录入弹窗 -->
+    <view wx:if="{{showBatchInput}}" class="modal-overlay" bindtap="hideBatchInput">
+      <view class="modal-content batch-content" catchtap="noop">
+        <text class="modal-title">📋 批量录入日程</text>
+        <view class="form-group">
+          <text class="form-label">👤 选择孩子</text>
+          <picker bindchange="onBatchChildChange" value="{{batchChildIndex}}" range="{{childPickerNames}}">
+            <view class="form-picker"><text>{{childPickerNames[batchChildIndex]}}</text><text class="picker-arrow">▼</text></view>
+          </picker>
+        </view>
+        <view class="form-group">
+          <text class="form-label">📝 粘贴日程文本</text>
+           <textarea class="batch-textarea" placeholder="格式示例：&#10;6月16日(周二)&#10;上午&#10;语文8:00~10:30&#10;化学10:50~11:50&#10;下午&#10;数学13:30~15:30&#10;地理&#10;16:00~17:00&#10;6月17日(周三)&#10;上午&#10;英语8:00~10:00&#10;...&#10;&#10;支持 ~ - — 多种分隔符" value="{{batchText}}" bindinput="onBatchTextInput" />
+        </view>
+        <view wx:if="{{batchPreview.length > 0}}" class="batch-preview-section">
+          <text class="batch-preview-label">预览（共 {{batchPreview.length}} 项）</text>
+          <scroll-view scroll-y class="batch-preview-scroll">
+            <view wx:for="{{batchPreview}}" wx:key="*this" class="batch-preview-item">
+              <text class="batch-preview-badge {{item.child === 'elder' ? 'badge-elder' : 'badge-younger'}}">{{item.child === 'elder' ? '♊' : '♏'}}</text>
+              <view class="batch-preview-body">
+                <text class="batch-preview-name">{{item.name}}</text>
+                <view class="batch-preview-meta">
+                  <text class="batch-preview-date">📅 {{item.date}}</text>
+                  <text class="batch-preview-time">🕐 {{item.startTime}}~{{item.endTime}}</text>
+                </view>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
+        <view class="modal-btns">
+          <view class="btn btn-cancel" bindtap="hideBatchInput">取消</view>
+          <view class="btn btn-confirm {{batchPreview.length === 0 ? 'btn-disabled' : ''}}"
+                bindtap="batchSubmit">{{batchUploading ? '提交中...' : '✓ 确认添加全部' + (batchPreview.length > 0 ? ' ' + batchPreview.length + ' 项' : '')}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 家庭设置弹窗 -->
+    <view wx:if="{{showFamilySettings}}" class="modal-overlay" bindtap="hideFamilySettings">
+      <view class="modal-content settings-content" catchtap="noop">
+        <text class="modal-title">👨‍👩‍👧‍👦 家庭设置</text>
+
+        <view class="settings-section">
+          <text class="settings-label">邀请码（分享给家人）</text>
+          <view class="invite-code-box">
+            <text class="invite-code-text">{{familyInviteCode}}</text>
+          </view>
+        </view>
+
+        <view class="settings-section">
+          <text class="settings-label">家庭成员 ({{familyMembers.length}}人)</text>
+          <view wx:for="{{familyMembers}}" wx:key="*this" class="member-row">
+            <text class="member-dot">●</text>
+            <text class="member-id">
+              {{familyMemberInfo[item] ? familyMemberInfo[item].name : '家庭成员'}}
+              <text wx:if="{{familyMemberInfo[item] && familyMemberInfo[item].role === 'admin'}}" class="role-badge admin">管理员</text>
+              <text wx:elif="{{familyMemberInfo[item] && familyMemberInfo[item].role === 'editor'}}" class="role-badge editor">编辑</text>
+              <text wx:else class="role-badge member">成员</text>
+            </text>
+            <view wx:if="{{isAdmin && familyMemberInfo[item] && familyMemberInfo[item].role !== 'admin'}}" class="member-action-btn" bindtap="editMember" data-openid="{{item}}" data-name="{{familyMemberInfo[item] ? familyMemberInfo[item].name : '家庭成员'}}" data-role="{{familyMemberInfo[item] ? familyMemberInfo[item].role : 'member'}}">
+              <text>⚙️</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 成员编辑弹窗 -->
+        <view wx:if="{{showMemberEdit}}" class="modal-overlay" bindtap="hideMemberEdit">
+          <view class="modal-content member-edit-content" catchtap="noop">
+            <text class="modal-title">✏️ 编辑成员</text>
+            <view class="join-input-wrap">
+              <input class="join-name-input" placeholder="昵称" maxlength="10"
+                     value="{{memberSettingsName}}" bindinput="onMemberSettingsNameInput" />
+            </view>
+            <view class="role-selector">
+              <text class="role-label">权限：</text>
+              <view class="role-option {{memberSettingsRole === 'editor' ? 'active' : ''}}" bindtap="onRoleSelect" data-role="editor">
+                <text class="role-option-icon">✏️</text>
+                <text class="role-option-text">编辑</text>
+                <text class="role-option-desc">可增删改日程</text>
+              </view>
+              <view class="role-option {{memberSettingsRole === 'member' ? 'active' : ''}}" bindtap="onRoleSelect" data-role="member">
+                <text class="role-option-icon">👁️</text>
+                <text class="role-option-text">只读</text>
+                <text class="role-option-desc">仅可勾选完成</text>
+              </view>
+            </view>
+            <view class="setup-btn primary-btn" bindtap="saveMemberInfo" style="margin-top: 20rpx;">
+              <text>保存</text>
+            </view>
+            <view class="modal-btns" style="margin-top: 16rpx;">
+              <view class="btn btn-cancel" bindtap="hideMemberEdit">取消</view>
+            </view>
+          </view>
+        </view>
+
+        <view class="settings-section" style="margin-top: 20rpx;">
+          <text class="settings-label">🔔 提醒设置（仅开启者可见）</text>
+          <view class="test-reminder-btn" bindtap="testReminder">
+            <text>📩 发送测试消息</text>
+            <text class="test-hint">验证订阅通道是否畅通</text>
+          </view>
+          <text class="settings-hint" style="margin-top: 8rpx;">
+            定时提醒：每晚 20:00 发明天汇总，每项日程开始前 {{remindAdvanceMinutes}} 分钟逐项提醒
+          </text>
+        </view>
+
+        <view class="settings-section">
+          <text class="settings-label">💡 提示</text>
+          <text class="settings-hint">家人加入后可勾选完成；「编辑」可增删改日程；「只读」仅可勾选。管理员可点击成员旁的 ✏️ 修改配置。</text>
+        </view>
+
+        <view class="modal-btns">
+          <view class="btn btn-cancel" bindtap="hideFamilySettings">关闭</view>
+        </view>
+      </view>
+    </view>
+
+  </view>
+
+  <!-- ===== 加载中 ===== -->
+  <view wx:if="{{familyState === 'loading'}}" class="loading-container">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+</view>
