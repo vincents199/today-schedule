@@ -1,0 +1,59 @@
+name: Auto Deploy to WeChat Cloud
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:  # 允许手动触发
+
+env:
+  NODE_VERSION: '18'
+  TCB_ENV_ID: ${{ secrets.TCB_ENV_ID }}
+  APP_ID: ${{ secrets.APP_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # 1. 安装云开发 CLI
+      - name: Install CloudBase CLI
+        run: npm install -g @cloudbase/cli
+
+      # 2. 登录（使用 CI 密钥）
+      - name: Login to CloudBase
+        run: |
+          tcb login --secretId ${{ secrets.TCB_SECRET_ID }} --secretKey ${{ secrets.TCB_SECRET_KEY }} --env ${{ secrets.TCB_ENV_ID }}
+
+      # 3. 部署云函数 data
+      - name: Deploy Cloud Function data
+        run: |
+          cd cloudfunctions/data
+          npm install --production
+          cd ../..
+          tcb fn deploy data --force --env ${{ secrets.TCB_ENV_ID }}
+
+      # 4. 部署云函数 reminders
+      - name: Deploy Cloud Function reminders
+        run: |
+          cd cloudfunctions/reminders
+          npm install --production
+          cd ../..
+          tcb fn deploy reminders --force --env ${{ secrets.TCB_ENV_ID }}
+
+      # 5. 上传小程序代码
+      - name: Upload Mini Program
+        run: |
+          npm install -g miniprogram-ci
+          node scripts/upload.js \
+            --appid ${{ secrets.APP_ID }} \
+            --privateKeyPath ${{ secrets.PRIVATE_KEY_PATH }} \
+            --version "1.${{ github.run_number }}" \
+            --desc "Auto deploy from commit ${{ github.sha }}"
+        env:
+          PRIVATE_KEY_PATH: ${{ secrets.UPLOAD_PRIVATE_KEY_PATH }}
