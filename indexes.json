@@ -1,0 +1,117 @@
+{
+  "families": {
+    "indexes": [
+      {
+        "field": "__id__",
+        "getType": "get",
+        "query": false
+      },
+      {
+        "field": "inviteCode",
+        "type": "text",
+        "unique": true
+      },
+      {
+        "field": "members",
+        "type": "text"
+      }
+    ]
+  },
+  "tasks": {
+    "indexes": [
+      {
+        "field": "__id__",
+        "getType": "get",
+        "query": false
+      },
+      {
+        "field": "familyId",
+        "type": "text"
+      },
+      {
+        "field": "child",
+        "type": "text"
+      },
+      {
+        "field": "date",
+        "type": "text"
+      }
+    ]
+  },
+  "completions": {
+    "indexes": [
+      {
+        "field": "__id__",
+        "getType": "get",
+        "query": false
+      },
+      {
+        "field": "familyId",
+        "type": "text"
+      },
+      {
+        "field": "taskId",
+        "type": "text"
+      },
+      {
+        "field": "date",
+        "type": "text"
+      }
+    ]
+  },
+  "reminderSubscriptions": {
+    "indexes": [
+      {
+        "field": "__id__",
+        "getType": "get",
+        "query": false
+      },
+      {
+        "field": "openid",
+        "type": "text"
+      },
+      {
+        "field": "enabled",
+        "type": "text"
+      },
+      {
+        "field": "familyId",
+        "type": "text"
+      }
+    ]
+  },
+  "reminderLog": {
+    "indexes": [
+      {
+        "field": "__id__",
+        "getType": "get",
+        "query": false
+      },
+      {
+        "field": "openid",
+        "type": "text"
+      },
+      {
+        "field": "logKey",
+        "type": "text"
+      },
+      {
+        "field": "sentAt",
+        "type": "text"
+      }
+    ]
+  },
+  "holidays": {
+    "indexes": [
+      {
+        "field": "__id__",
+        "getType": "get",
+        "query": false
+      },
+      {
+        "field": "year",
+        "type": "text"
+      }
+    ]
+  }
+}
